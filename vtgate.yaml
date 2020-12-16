@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: vtgate
+  name: vtgate
+  namespace: cloud
+spec:
+  ports:
+  - name: vtgate
+    port: 8080
+    targetPort: vtgate
+  selector:
+    app: vtgate
+  type: NodePort
+---
+apiVersion: v1
+data:
+  mysql_auth.json: '{"root": [{"Password": "passw0rd"}]}'
+kind: ConfigMap
+metadata:
+  name: vtgate-auth
+  namespace: cloud
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vtgate
+  namespace: cloud
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: vtgate
+  template:
+    metadata:
+      labels:
+        app: vtgate
+    spec:
+      containers:
+      - args:
+        - /vt/bin/vtgate
+        - -topo_implementation
+        - consul
+        - -topo_global_server_address
+        - localhost:8500
+        - -topo_global_root
+        - vitess/global
+        - -mysql_server_port
+        - "3306"
+        - -mysql_auth_server_impl
+        - static
+        - -mysql_auth_server_static_file
+        - /opt/vitess/mysql_auth.json
+        - -cell
+        - us_east_1
+        - -cells_to_watch
+        - us_east_1
+        - -gateway_implementation
+        - discoverygateway
+        - -port
+        - "8080"
+        - -service_map
+        - grpc-vtgateservice
+        - -tablet_types_to_wait
+        - MASTER
+        - -grpc_max_message_size
+        - "37754432"
+        image: serhatcetinkaya/vitess:60322344f-lite
+        imagePullPolicy: IfNotPresent
+        name: vtgate
+        ports:
+        - containerPort: 8080
+          name: vtgate
+        - containerPort: 3306
+          name: vtgate-mysql
+        volumeMounts:
+        - mountPath: /opt/vitess/mysql_auth.json
+          name: vtgate-auth-vol
+          subPath: mysql_auth.json
+      - image: nginx:1.17.7
+        imagePullPolicy: IfNotPresent
+        name: nginx
+        volumeMounts:
+        - mountPath: /etc/nginx/conf.d/consul.conf
+          name: nginx-config-vol
+          subPath: consul.conf
+      volumes:
+      - configMap:
+          name: nginx-config
+        name: nginx-config-vol
+      - configMap:
+          name: vtgate-auth
+        name: vtgate-auth-vol

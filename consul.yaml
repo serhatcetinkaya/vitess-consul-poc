@@ -1,0 +1,541 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: consul-client
+    service_group: consul
+  name: consul-client
+  namespace: cloud
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: consul-server
+    service_group: consul
+  name: consul-server
+  namespace: cloud
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app: consul-client
+    service_group: consul
+  name: consul-client
+  namespace: cloud
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app: consul-server
+    service_group: consul
+  name: consul-server
+  namespace: cloud
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app: consul-client
+    service_group: consul
+  name: consul-client
+  namespace: cloud
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: consul-client
+subjects:
+- kind: ServiceAccount
+  name: consul-client
+  namespace: cloud
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app: consul-server
+    service_group: consul
+  name: consul-server
+  namespace: cloud
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: consul-server
+subjects:
+- kind: ServiceAccount
+  name: consul-server
+  namespace: cloud
+---
+apiVersion: v1
+data:
+  conf.json: |-
+    {
+      "datacenter": "us-east-1",
+      "data_dir": "/consul/data",
+      "log_level": "WARN",
+      "retry_join": [
+        "consul-server-0.consul-server.${NAMESPACE}.svc",
+        "consul-server-1.consul-server.${NAMESPACE}.svc",
+        "consul-server-2.consul-server.${NAMESPACE}.svc"
+      ],
+      "leave_on_terminate": true,
+      "advertise_addr": "${ADVERTISE_ADDR}",
+      "node_name": "${NODE}",
+      "acl_token": "${ACL_TOKEN}",
+      "node_meta": {"pod-name":"${HOSTNAME}"},
+      "bind_addr": "0.0.0.0",
+      "addresses": {
+        "http": "0.0.0.0",
+        "grpc": "0.0.0.0",
+        "dns" : "0.0.0.0"
+      }
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app: consul-client
+    service_group: consul
+  name: consul-client-config-tmpl
+  namespace: cloud
+---
+apiVersion: v1
+data:
+  conf.json: |-
+    {
+      "advertise_addr": "${ADVERTISE_ADDR}",
+      "acl_datacenter": "us-east-1",
+      "acl_master_token": "${MASTER_TOKEN}",
+      "acl_agent_token": "${AGENT_TOKEN}",
+      "acl_default_policy": "deny",
+      "acl_down_policy": "deny",
+      "datacenter": "us-east-1",
+      "data_dir": "/consul/data",
+      "log_level": "WARN",
+      "server": true,
+      "bootstrap_expect": 3,
+      "retry_join": [
+        "consul-server-0.consul-server.${NAMESPACE}.svc",
+        "consul-server-1.consul-server.${NAMESPACE}.svc",
+        "consul-server-2.consul-server.${NAMESPACE}.svc"
+      ],
+      "bind_addr": "0.0.0.0",
+      "addresses": {
+        "http": "0.0.0.0",
+        "grpc": "0.0.0.0",
+        "dns" : "0.0.0.0"
+      },
+      "ui": true
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app: consul-server
+    service_group: consul
+  name: consul-server-config-tmpl
+  namespace: cloud
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+  labels:
+    app: consul-server
+    service_group: consul
+  name: consul-server
+  namespace: cloud
+spec:
+  clusterIP: None
+  ports:
+  - name: http
+    port: 8500
+    targetPort: 8500
+  - name: serflan-tcp
+    port: 8301
+    protocol: TCP
+    targetPort: 8301
+  - name: serflan-udp
+    port: 8301
+    protocol: UDP
+    targetPort: 8301
+  - name: serfwan-tcp
+    port: 8302
+    protocol: TCP
+    targetPort: 8302
+  - name: serfwan-udp
+    port: 8302
+    protocol: UDP
+    targetPort: 8302
+  - name: server
+    port: 8300
+    targetPort: 8300
+  - name: dns-tcp
+    port: 8600
+    protocol: TCP
+    targetPort: dns-tcp
+  - name: dns-udp
+    port: 8600
+    protocol: UDP
+    targetPort: dns-udp
+  publishNotReadyAddresses: true
+  selector:
+    app: consul-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: consul-ui
+    service_group: consul
+  name: consul-ui
+  namespace: cloud
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8500
+  selector:
+    app: consul-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+  labels:
+    app: consul-client
+    service_group: consul
+  name: consul-client
+  namespace: cloud
+spec:
+  clusterIP: None
+  ports:
+  - name: http
+    port: 8500
+    targetPort: 8500
+  - name: serflan-tcp
+    port: 8301
+    protocol: TCP
+    targetPort: 8301
+  - name: serflan-udp
+    port: 8301
+    protocol: UDP
+    targetPort: 8301
+  - name: serfwan-tcp
+    port: 8302
+    protocol: TCP
+    targetPort: 8302
+  - name: serfwan-udp
+    port: 8302
+    protocol: UDP
+    targetPort: 8302
+  - name: server
+    port: 8300
+    targetPort: 8300
+  - name: dns-tcp
+    port: 8600
+    protocol: TCP
+    targetPort: dns-tcp
+  - name: dns-udp
+    port: 8600
+    protocol: UDP
+    targetPort: dns-udp
+  publishNotReadyAddresses: true
+  selector:
+    app: consul-client
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: consul-server
+    service_group: consul
+  name: consul-server
+  namespace: cloud
+spec:
+  podManagementPolicy: Parallel
+  replicas: 3
+  selector:
+    matchLabels:
+      app: consul-server
+  serviceName: consul-server
+  template:
+    metadata:
+      labels:
+        app: consul-server
+        service_group: consul
+    spec:
+      containers:
+      - args:
+        - agent
+        - -server
+        - -config-dir=/consul/config
+        image: consul:1.8.0
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - consul leave
+        livenessProbe:
+          exec:
+            command:
+            - pgrep
+            - consul
+          failureThreshold: 2
+          initialDelaySeconds: 5
+          periodSeconds: 3
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: consul
+        ports:
+        - containerPort: 8500
+          name: http
+        - containerPort: 8301
+          name: serflan-tcp
+          protocol: TCP
+        - containerPort: 8301
+          name: serflan-udp
+          protocol: UDP
+        - containerPort: 8302
+          name: serfwan-tcp
+          protocol: TCP
+        - containerPort: 8302
+          name: serfwan-udp
+          protocol: UDP
+        - containerPort: 8300
+          name: server
+        - containerPort: 8600
+          name: dns-tcp
+          protocol: TCP
+        - containerPort: 8600
+          name: dns-udp
+          protocol: UDP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -ec
+            - |
+              curl http://127.0.0.1:8500/v1/status/leader \
+              2>/dev/null | grep -E '".+"'
+        resources:
+          limits:
+            cpu: 250m
+            memory: 250Mi
+          requests:
+            cpu: 250m
+            memory: 250Mi
+        volumeMounts:
+        - mountPath: /consul/data
+          name: data
+        - mountPath: /consul/config
+          name: config
+      initContainers:
+      - command:
+        - sh
+        - -ec
+        - envsubst < /config-template/conf.json > /config/conf.json
+        env:
+        - name: MASTER_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: master-token
+              name: consul-server
+        - name: AGENT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: agent-token
+              name: consul-server
+        - name: ADVERTISE_ADDR
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: bhgedigital/envsubst:v1.0-alpine3.6
+        imagePullPolicy: IfNotPresent
+        name: populate-config-data
+        resources:
+          limits:
+            cpu: 60m
+            memory: 64Mi
+        volumeMounts:
+        - mountPath: /config-template
+          name: config-tmpl
+        - mountPath: /config
+          name: config
+      securityContext:
+        fsGroup: 1000
+      serviceAccountName: consul-server
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir: {}
+        name: config
+      - emptyDir: {}
+        name: data
+      - configMap:
+          name: consul-server-config-tmpl
+        name: config-tmpl
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app: consul-server
+    service_group: consul
+  name: consul-server
+  namespace: cloud
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: consul-server
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: consul-client
+    service_group: consul
+  name: consul-client
+  namespace: cloud
+spec:
+  serviceName: consul-client
+  selector:
+    matchLabels:
+      app: consul-client
+  template:
+    metadata:
+      labels:
+        app: consul-client
+        service_group: consul
+    spec:
+      containers:
+      - args:
+        - agent
+        - -config-dir=/consul/config
+        image: consul:1.8.0
+        livenessProbe:
+          exec:
+            command:
+            - pgrep
+            - consul
+        name: consul
+        ports:
+        - containerPort: 8500
+          hostPort: 8500
+          name: http
+        - containerPort: 8502
+          hostPort: 8502
+          name: grpc
+        - containerPort: 8301
+          hostPort: 8301
+          name: serflan-tcp
+          protocol: TCP
+        - containerPort: 8301
+          hostPort: 8301
+          name: serflan-udp
+          protocol: UDP
+        - containerPort: 8302
+          name: serfwan
+        - containerPort: 8300
+          name: server
+        - containerPort: 8600
+          name: dns-tcp
+          protocol: TCP
+        - containerPort: 8600
+          name: dns-udp
+          protocol: UDP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -ec
+            - |
+              curl http://127.0.0.1:8500/v1/status/leader \
+              2>/dev/null | grep -E '".+"'
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        volumeMounts:
+        - mountPath: /consul/data
+          name: data
+        - mountPath: /consul/config
+          name: config
+      initContainers:
+      - command:
+        - sh
+        - -ec
+        - envsubst < /config-template/conf.json > /config/conf.json
+        env:
+        - name: ACL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: acl-token
+              name: consul-client
+        - name: ADVERTISE_ADDR
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NODE
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: bhgedigital/envsubst:v1.0-alpine3.6
+        imagePullPolicy: IfNotPresent
+        name: populate-config-data
+        resources:
+          limits:
+            cpu: 60m
+            memory: 64Mi
+        volumeMounts:
+        - mountPath: /config-template
+          name: config-tmpl
+        - mountPath: /config
+          name: config
+      serviceAccountName: consul-client
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - emptyDir: {}
+        name: data
+      - emptyDir: {}
+        name: config
+      - configMap:
+          name: consul-client-config-tmpl
+        name: config-tmpl
+---
+apiVersion: v1
+data:
+  acl-token: NjI1MmEyM2ItNjcyNi00OWEwLTllOWItMDg1MGYxMzIxNzI2
+kind: Secret
+metadata:
+  name: consul-client
+  namespace: cloud
+type: Opaque
+---
+apiVersion: v1
+data:
+  agent-token: NjI1MmEyM2ItNjcyNi00OWEwLTllOWItMDg1MGYxMzIxNzI2
+  master-token: NjI1MmEyM2ItNjcyNi00OWEwLTllOWItMDg1MGYxMzIxNzI2
+kind: Secret
+metadata:
+  name: consul-server
+  namespace: cloud
+type: Opaque

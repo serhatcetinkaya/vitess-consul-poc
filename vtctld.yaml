@@ -1,0 +1,104 @@
+apiVersion: v1
+data:
+  consul.conf: |
+    server {
+      listen 8500;
+      listen [::]:8500;
+
+      access_log off;
+      error_log off;
+
+      location / {
+        proxy_pass http://consul-client:8500;
+        proxy_http_version 1.1;
+      }
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app: mysql
+  name: nginx-config
+  namespace: cloud
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: vtctld
+    service_group: vtctld
+  name: vtctld
+  namespace: cloud
+spec:
+  ports:
+  - name: web
+    port: 8080
+    targetPort: http-port
+  - name: grpc
+    port: 15999
+    targetPort: grpc-port
+  selector:
+    app: vtctld
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vtctld
+  namespace: cloud
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: vtctld
+  template:
+    metadata:
+      labels:
+        app: vtctld
+    spec:
+      containers:
+      - args:
+        - /vt/bin/vtctld
+        - -logtostderr
+        - -topo_implementation
+        - consul
+        - -topo_global_server_address
+        - localhost:8500
+        - -web_dir
+        - /vt/src/vitess.io/vitess/web/vtctld
+        - -web_dir2
+        - /vt/src/vitess.io/vitess/web/vtctld2/app
+        - -topo_global_root
+        - vitess/global
+        - -port
+        - "8080"
+        - -grpc_port
+        - "15999"
+        - -cell
+        - us_east_1
+        - -service_map
+        - grpc-vtctl
+        env:
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        image: serhatcetinkaya/vitess:60322344f-lite
+        imagePullPolicy: IfNotPresent
+        name: vtctld
+        ports:
+        - containerPort: 8080
+          name: http-port
+        - containerPort: 15999
+          name: grpc-port
+      - image: nginx:1.17.7
+        imagePullPolicy: IfNotPresent
+        name: nginx
+        volumeMounts:
+        - mountPath: /etc/nginx/conf.d/consul.conf
+          name: nginx-config-vol
+          subPath: consul.conf
+      volumes:
+      - configMap:
+          name: nginx-config
+        name: nginx-config-vol
