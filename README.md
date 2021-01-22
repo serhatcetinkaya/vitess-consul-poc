@@ -72,7 +72,7 @@ kubectl exec --namespace cloud --stdin --tty $VTCTLD_POD_NAME -- /bin/sh
 At this step after making sure every pod is up and running we port-forward `:3306` from vtgate pod to our local and test connection:
 
 ```bash
-kubectl port-forward pod/$VTCTLD_POD_NAME 3306:3306 --namespace cloud
+kubectl port-forward pod/$VTGATE_POD_NAME 3306:3306 --namespace cloud
 Forwarding from 127.0.0.1:3306 -> 3306
 Forwarding from [::1]:3306 -> 3306
 ```
