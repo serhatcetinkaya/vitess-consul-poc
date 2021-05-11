@@ -52,7 +52,7 @@ spec:
           - --gtid-mode=ON
           - --enforce-gtid-consistency=ON
       - name: vttablet
-        image: serhatcetinkaya/vitess:60322344f-lite
+        image: vitess/lite:v10.0.11
         imagePullPolicy: IfNotPresent
         command:
           - /vt/bin/vttablet
