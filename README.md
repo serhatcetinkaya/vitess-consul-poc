@@ -112,7 +112,7 @@ sysbench --db-driver=mysql --mysql-user=root --mysql_password=passw0rd --mysql-d
 Test should finish without any errors in couple of seconds. After confirming this, run another test, but just after the new test starts kill the leader consul pod to force leader election:
 
 ```bash
-kubectl delete node $LEADER_CONSUL_POD --namespace cloud
+kubectl delete pod $LEADER_CONSUL_POD --namespace cloud
 ```
 
 After consul cluster starts new leader election and becomes unavailable for a short period of time, sysbench will get an error similar to following:
