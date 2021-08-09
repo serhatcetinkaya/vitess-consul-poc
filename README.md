@@ -26,6 +26,8 @@ minikube service list -p vitess
 | default     | kubernetes    | No node port              |     |
 | kube-system | kube-dns      | No node port              |     |
 |-------------|---------------|---------------------------|-----|
+## With newer version
+minikube service --url consul-ui -p vitess -n cloud
 ```
 
 - Apply `vtctld.yaml` file to deploy vtctld pod. It has a nginx sidecar to proxy consul requests (localhost:8500) to consul client:
