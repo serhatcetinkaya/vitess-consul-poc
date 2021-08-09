@@ -16,7 +16,7 @@ Deployment order:
 - Apply `consul.yaml` file, it will create a consul client pod and 3 server nodes in cluster. Once it is ready you can get URL for consul UI from minikube and test access (http://192.168.64.6:32754 is the test URL for this example):
 ```
 kubectl apply -f consul.yaml
-minikube service list -pvitess
+minikube service list -p vitess
 |-------------|---------------|---------------------------|-----|
 |  NAMESPACE  |     NAME      |        TARGET PORT        | URL |
 |-------------|---------------|---------------------------|-----|

@@ -67,7 +67,7 @@ spec:
         - MASTER
         - -grpc_max_message_size
         - "37754432"
-        image: vitess/lite:v10.0.1
+        image: vitess/lite:v11.0.0
         imagePullPolicy: IfNotPresent
         name: vtgate
         ports:
